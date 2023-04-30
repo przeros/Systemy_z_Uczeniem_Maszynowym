@@ -43,6 +43,24 @@ def unify_labels(labels_array):
 def normalize_data(img, label):
     return tf.cast(img, tf.float32)/255., label
 
+def flip_image(img, direction):
+    return cv2.flip(img, direction)
+
+def adjust_brightness(img, delta):
+    return tf.image.adjust_brightness(img, delta=delta)
+
+def rotate_image(img, angle_range_left, angle_range_right):
+    angle = np.random.randint(angle_range_left, angle_range_right)
+    rows, cols, _ = img.shape
+    M = cv2.getRotationMatrix2D((cols / 2, rows / 2), angle, 1)
+    return cv2.warpAffine(img, M, (cols, rows))
+
+def zoom_image(img, zoom_factor):
+    h, w = img.shape[:2]
+    new_h, new_w = int(h / zoom_factor), int(w / zoom_factor)
+    center_x, center_y = int(w / 2), int(h / 2)
+    cropped_img = img[center_y - new_h:center_y + new_h, center_x - new_w:center_x + new_w]
+    return cv2.resize(cropped_img, (w, h))
 
 # pobranie folderów=klas z folderu piłki
 directories_classes = []
@@ -74,14 +92,24 @@ for dir in directories_classes:
             image_array.append(img)
             label_array.append(dir)
 
-            # augemntacja danych - flip i zmiana jasności, czyli plus 2x tyle zdjęć
-            flipped_img = cv2.flip(img, 1)
-            bright_img = tf.image.adjust_brightness(img, delta=-0.4)
+            #augemntacja danych - plus 4x tyle zdjęć
+            #flip pionowy względem osi x
+            flipped_img = flip_image(img, 0)
+            #zmiana jasności (przyciemnienie)
+            bright_img = adjust_brightness(img, -0.4)
+            #obrót obrazu o losowy kąt z zakresu (-90, 90) stopni
+            rotated_img = rotate_image(img, -90, 90)
+            #zoom x 2
+            zoomed_img = zoom_image(img, 2)
 
             # dodaj nowo postałe dane do tablic
             image_array.append(flipped_img)
             label_array.append(dir)
             image_array.append(bright_img)
+            label_array.append(dir)
+            image_array.append(rotated_img)
+            label_array.append(dir)
+            image_array.append(zoomed_img)
             label_array.append(dir)
 
     # ustaw rozmiar na 10%, zakładając, że podział: 80% - treninigowe, 10% - walidacyjne, 10% - testowe
@@ -102,9 +130,9 @@ test_images = np.array(test_images)
 test_labels = np.array(test_labels)
 
 # pozbądź się nazw tła z etykiet
-unify_labels(train_labels)
-unify_labels(val_labels)
-unify_labels(test_labels)
+# unify_labels(train_labels)
+# unify_labels(val_labels)
+# unify_labels(test_labels)
 
 # stwórz datasety train, val, test
 dataset_train = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
@@ -121,3 +149,11 @@ shuffle_size = 180
 dataset_train = dataset_train.shuffle(shuffle_size)
 dataset_validation = dataset_validation.shuffle(shuffle_size)
 dataset_test = dataset_test.shuffle(shuffle_size)
+
+print(len(train_labels))
+print(len(val_labels))
+print(len(test_labels))
+
+print(len(dataset_train))
+print(len(dataset_validation))
+print(len(dataset_test))
