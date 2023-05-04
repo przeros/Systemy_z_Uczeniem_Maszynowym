@@ -6,6 +6,9 @@ import cv2
 import tensorflow as tf
 from tensorflow import keras
 from keras import layers
+from keras.callbacks import ModelCheckpoint, EarlyStopping
+from livelossplot import PlotLossesKeras
+
 
 # Koncepcja: Mamy folder o nazwie piłki, a w tym folderze:
 #           * 18 folderów
@@ -155,12 +158,12 @@ def main():
                 # dodaj nowo postałe dane do tablic
                 image_array_split2.append(flipped_img)
                 label_array_split2.append(dir)
-                image_array_split2.append(bright_img)
-                label_array_split2.append(dir)
-                image_array_split2.append(rotated_img)
-                label_array_split2.append(dir)
-                image_array_split2.append(zoomed_img)
-                label_array_split2.append(dir)
+                #image_array_split2.append(bright_img)
+                #label_array_split2.append(dir)
+                #image_array_split2.append(rotated_img)
+                #label_array_split2.append(dir)
+                #image_array_split2.append(zoomed_img)
+                #label_array_split2.append(dir)
 
                 image_array_split3.append(flipped_img)
                 label_array_split3.append(dir)
@@ -312,12 +315,24 @@ def main():
     # Compile the model
     model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
 
-    print(dataset_train_split2.element_spec)
+    # Saves Keras model after each epoch
+    checkpointer = ModelCheckpoint(filepath='img_model.weights.best.hdf5',
+                                   verbose=1,
+                                   save_best_only=True)
+
+    # Early stopping to prevent overtraining and to ensure decreasing validation loss
+    early_stop = EarlyStopping(monitor='val_loss',
+                               patience=10,
+                               restore_best_weights=True,
+                               mode='min')
+
     # Train the model
-    model.fit(dataset_train_split2, validation_data=dataset_validation_split2, batch_size=32, epochs=10)
+    history = model.fit(dataset_train_split2, validation_data=dataset_validation_split2, batch_size=32, epochs=10,
+              callbacks=[early_stop, checkpointer, PlotLossesKeras()])
 
     # Evaluate the model on the test data
     score = model.evaluate(dataset_test_split2)
     print(score)
+    print(history)
 
 main()
