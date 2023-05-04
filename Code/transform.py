@@ -4,6 +4,8 @@ import random
 import numpy as np
 import cv2
 import tensorflow as tf
+from tensorflow import keras
+from keras import layers
 
 # Koncepcja: Mamy folder o nazwie piłki, a w tym folderze:
 #           * 18 folderów
@@ -66,6 +68,28 @@ def zoom_image(img, zoom_factor):
     cropped_img = img[center_y - new_h:center_y + new_h, center_x - new_w:center_x + new_w]
     return cv2.resize(cropped_img, (w, h))
 
+def reshape_data_to_4dim(image, label):
+    image = tf.expand_dims(image, 0)
+    label = tf.expand_dims(label, 0)
+    return image, label
+
+def create_label_map(labels):
+    label_map = {}
+    label_count = 0
+
+    for label in labels:
+        if label not in label_map:
+            label_map[label] = label_count
+            label_count += 1
+    return label_map
+def convert_to_one_hot(numbers):
+    num_classes = 6
+    n = len(numbers)
+    one_hot = np.zeros((n, num_classes))
+    for i, number in enumerate(numbers):
+        one_hot[i, number] = 1
+    print(one_hot.shape)
+    return one_hot
 
 # pobranie folderów=klas z folderu piłki
 def main():
@@ -153,10 +177,10 @@ def main():
 
         # wywołaj funkcję losowo przydzielającą do val i test setów
         image_array_split1, label_array_split1, test_images_split1, test_labels_split1 = build_subset(image_array_split1, label_array_split1, test_images_split1, test_labels_split1, size_split1)
-        image_array_split1, label_array_split1, val_images_split1, val_labels_split1 = build_subset(image_array_split1,label_array_split1,val_images_split1,val_labels_split1,size_split1)
+        image_array_split1, label_array_split1, val_images_split1, val_labels_split1 = build_subset(image_array_split1, label_array_split1,val_images_split1,val_labels_split1,size_split1)
 
         image_array_split2, label_array_split2, test_images_split2, test_labels_split2 = build_subset(image_array_split2, label_array_split2, test_images_split2,test_labels_split2, size_split2_3)
-        image_array_split2, label_array_split2, val_images_split2, val_labels_split2 = build_subset(image_array_split2,label_array_split2,val_images_split2,val_labels_split2,size_split2_3)
+        image_array_split2, label_array_split2, val_images_split2, val_labels_split2 = build_subset(image_array_split2, label_array_split2,val_images_split2,val_labels_split2,size_split2_3)
 
         image_array_split3, label_array_split3, test_images_split3, test_labels_split3 = build_subset(image_array_split3, label_array_split3, test_images_split3,test_labels_split3, size_split2_3)
 
@@ -172,40 +196,73 @@ def main():
 
     # zamień listy na numpy arrays
     train_images_split1 = np.array(train_images_split1)
-    train_labels_split1 = np.array(train_labels_split1)
     val_images_split1 = np.array(val_images_split1)
-    val_labels_split1 = np.array(val_labels_split1)
     test_images_split1 = np.array(test_images_split1)
-    test_labels_split1 = np.array(test_labels_split1)
 
     train_images_split2 = np.array(train_images_split2)
-    train_labels_split2 = np.array(train_labels_split2)
     val_images_split2 = np.array(val_images_split2)
-    val_labels_split2 = np.array(val_labels_split2)
     test_images_split2 = np.array(test_images_split2)
-    test_labels_split2 = np.array(test_labels_split2)
 
     train_images_split3 = np.array(train_images_split3)
-    train_labels_split3 = np.array(train_labels_split3)
     test_images_split3 = np.array(test_images_split3)
-    test_labels_split3 = np.array(test_labels_split3)
 
     # pozbądź się nazw tła z etykiet
     # unify_labels(train_labels)
     # unify_labels(val_labels)
     # unify_labels(test_labels)
 
+    # konwertuj etykiety na indexy liczbowe
+    labels = list(set(train_labels_split1))
+    print(labels)
+    label_map = create_label_map(labels)
+    train_labels_split1 = [label_map[label] for label in train_labels_split1]
+    train_labels_split1_one_hot = convert_to_one_hot(train_labels_split1)
+    print(train_labels_split1_one_hot)
+
+    val_labels_split1 = [label_map[label] for label in val_labels_split1]
+    val_labels_split1_one_hot = convert_to_one_hot(val_labels_split1)
+
+    test_labels_split1 = [label_map[label] for label in test_labels_split1]
+    test_labels_split1_one_hot = convert_to_one_hot(test_labels_split1)
+
+    train_labels_split2 = [label_map[label] for label in train_labels_split2]
+    train_labels_split2_one_hot = convert_to_one_hot(train_labels_split2)
+
+    val_labels_split2 = [label_map[label] for label in val_labels_split2]
+    val_labels_split2_one_hot = convert_to_one_hot(val_labels_split2)
+
+    test_labels_split2 = [label_map[label] for label in test_labels_split2]
+    test_labels_split2_one_hot = convert_to_one_hot(test_labels_split2)
+
+    train_labels_split3 = [label_map[label] for label in train_labels_split3]
+    train_labels_split3_one_hot = convert_to_one_hot(train_labels_split3)
+
+    test_labels_split3 = [label_map[label] for label in test_labels_split3]
+    test_labels_split3_one_hot = convert_to_one_hot(test_labels_split3)
+
     # stwórz datasety train, val, test
-    dataset_train_split1 = tf.data.Dataset.from_tensor_slices((train_images_split1, train_labels_split1))
-    dataset_validation_split1 = tf.data.Dataset.from_tensor_slices((val_images_split1, val_labels_split1))
-    dataset_test_split1 = tf.data.Dataset.from_tensor_slices((test_images_split1, test_labels_split1))
+    dataset_train_split1 = tf.data.Dataset.from_tensor_slices((train_images_split1, train_labels_split1_one_hot))
+    dataset_validation_split1 = tf.data.Dataset.from_tensor_slices((val_images_split1, val_labels_split1_one_hot))
+    dataset_test_split1 = tf.data.Dataset.from_tensor_slices((test_images_split1, test_labels_split1_one_hot))
 
-    dataset_train_split2 = tf.data.Dataset.from_tensor_slices((train_images_split2, train_labels_split2))
-    dataset_validation_split2 = tf.data.Dataset.from_tensor_slices((val_images_split2, val_labels_split2))
-    dataset_test_split2 = tf.data.Dataset.from_tensor_slices((test_images_split2, test_labels_split2))
+    dataset_train_split2 = tf.data.Dataset.from_tensor_slices((train_images_split2, train_labels_split2_one_hot))
+    dataset_validation_split2 = tf.data.Dataset.from_tensor_slices((val_images_split2, val_labels_split2_one_hot))
+    dataset_test_split2 = tf.data.Dataset.from_tensor_slices((test_images_split2, test_labels_split2_one_hot))
 
-    dataset_train_split3 = tf.data.Dataset.from_tensor_slices((train_images_split3, train_labels_split3))
-    dataset_test_split3 = tf.data.Dataset.from_tensor_slices((test_images_split3, test_labels_split3))
+    dataset_train_split3 = tf.data.Dataset.from_tensor_slices((train_images_split3, train_labels_split3_one_hot))
+    dataset_test_split3 = tf.data.Dataset.from_tensor_slices((test_images_split3, test_labels_split3_one_hot))
+
+    # Reshape data to 4 dim
+    dataset_train_split1 = dataset_train_split1.map(reshape_data_to_4dim)
+    dataset_validation_split1 = dataset_validation_split1.map(reshape_data_to_4dim)
+    dataset_test_split1 = dataset_test_split1.map(reshape_data_to_4dim)
+
+    dataset_train_split2 = dataset_train_split2.map(reshape_data_to_4dim)
+    dataset_validation_split2 = dataset_validation_split2.map(reshape_data_to_4dim)
+    dataset_test_split2 = dataset_test_split2.map(reshape_data_to_4dim)
+
+    dataset_train_split3 = dataset_train_split3.map(reshape_data_to_4dim)
+    dataset_test_split3 = dataset_test_split3.map(reshape_data_to_4dim)
 
     # znormalizuj dane
     dataset_train_split2 = dataset_train_split2.map(normalize_data)
@@ -215,40 +272,52 @@ def main():
     dataset_train_split3 = dataset_train_split3.map(normalize_data)
     dataset_test_split3 = dataset_test_split3.map(normalize_data)
 
-    # do ustawienia
-    shuffle_size = 180
-    dataset_train_split1 = dataset_train_split1.shuffle(shuffle_size)
-    dataset_validation_split1 = dataset_validation_split1.shuffle(shuffle_size)
-    dataset_test_split1 = dataset_test_split1.shuffle(shuffle_size)
+    # print(len(train_labels_split1))
+    # print(len(val_labels_split1))
+    # print(len(test_labels_split1))
+    #
+    # print(len(dataset_train_split1))
+    # print(len(val_labels_split1))
+    # print(len(dataset_test_split1))
+    #
+    # print(len(train_labels_split2))
+    # print(len(val_labels_split2))
+    # print(len(test_labels_split2))
+    #
+    # print(len(dataset_train_split2))
+    # print(len(val_labels_split2))
+    # print(len(dataset_test_split2))
+    #
+    # print(len(train_labels_split3))
+    # print(len(test_labels_split3))
+    #
+    # print(len(dataset_train_split3))
+    # print(len(dataset_test_split3))
 
-    dataset_train_split2 = dataset_train_split2.shuffle(shuffle_size)
-    dataset_validation_split2 = dataset_validation_split2.shuffle(shuffle_size)
-    dataset_test_split2 = dataset_test_split2.shuffle(shuffle_size)
+    # Define the model
+    input_shape = (224, 224, 3)
+    num_classes = len(labels)
+    model = tf.keras.Sequential([
+        tf.keras.applications.MobileNetV3Large(input_shape=input_shape, include_top=False, weights='imagenet'),
+        layers.Flatten(),
+        # Add a fully connected layer with 256 neurons
+        layers.Dense(256, activation='relu'),
+        # Add the final output layer with softmax activation for classification
+        layers.Dense(num_classes, activation='softmax')
+    ])
 
-    dataset_train_split3 = dataset_train_split3.shuffle(shuffle_size)
-    dataset_test_split3 = dataset_test_split3.shuffle(shuffle_size)
+    # Print the model summary
+    model.summary()
 
-    print(len(train_labels_split1))
-    print(len(val_labels_split1))
-    print(len(test_labels_split1))
+    # Compile the model
+    model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
 
-    print(len(dataset_train_split1))
-    print(len(val_labels_split1))
-    print(len(dataset_test_split1))
+    print(dataset_train_split2.element_spec)
+    # Train the model
+    model.fit(dataset_train_split2, validation_data=dataset_validation_split2, batch_size=32, epochs=10)
 
-    print(len(train_labels_split2))
-    print(len(val_labels_split2))
-    print(len(test_labels_split2))
-
-    print(len(dataset_train_split2))
-    print(len(val_labels_split2))
-    print(len(dataset_test_split2))
-
-    print(len(train_labels_split3))
-    print(len(test_labels_split3))
-
-    print(len(dataset_train_split3))
-    print(len(dataset_test_split3))
-
+    # Evaluate the model on the test data
+    score = model.evaluate(dataset_test_split2)
+    print(score)
 
 main()
